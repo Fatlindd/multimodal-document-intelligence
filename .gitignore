@@ -7,3 +7,4 @@ node_modules/
 .next/
 .DS_Store
 large_test.pdf
+test_invoice.pdf

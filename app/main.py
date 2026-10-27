@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from app.document_parser import parse_pdf
+from app.extraction_pipeline import extract_pdf_document
 
 app = FastAPI()
 
@@ -20,13 +20,7 @@ async def upload_document(file: Annotated[UploadFile, File()]):
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="File too large")
     if file.content_type == "application/pdf":
-        parsed = parse_pdf(contents)
-        return {
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "page_count": parsed["page_count"],
-            "text": parsed["text"],
-        }
+        return extract_pdf_document(contents)
     return {
         "filename": file.filename,
         "content_type": file.content_type,
