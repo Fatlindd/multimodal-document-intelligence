@@ -1,5 +1,6 @@
 from app.ai_extractor import classify_document, extract_structured_document
 from app.document_parser import parse_pdf, render_pdf_pages
+from app.extraction_warnings import build_extraction_warnings
 from app.schemas import ExtractionResponse
 
 
@@ -13,9 +14,10 @@ def extract_pdf_document(content: bytes):
         first_page_image,
         document_type,
     )
+    data = structured_model.model_dump()
     return ExtractionResponse(
         document_type=document_type,
-        data=structured_model.model_dump(),
-        warnings=[],
+        data=data,
+        warnings=build_extraction_warnings(document_type, data),
         metadata={"page_count": parsed["page_count"]},
     )

@@ -1,6 +1,9 @@
 import pytest
 
-from app.schema_registry import get_schema_for_document_type
+from app.schema_registry import (
+    UnsupportedDocumentTypeError,
+    get_schema_for_document_type,
+)
 from app.schemas import ContractData, CVData, InvoiceData, ReceiptData
 
 
@@ -12,6 +15,6 @@ def test_supported_document_types():
 
 
 def test_unsupported_document_type():
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(UnsupportedDocumentTypeError) as exc_info:
         get_schema_for_document_type("other")
-    assert str(exc_info.value) == "Unsupported document type"
+    assert str(exc_info.value) == "Unsupported document type: other"
