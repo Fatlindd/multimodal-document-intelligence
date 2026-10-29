@@ -1,13 +1,16 @@
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
-from app.ai_extractor import AIOutputValidationError, AIServiceError
-from app.document_parser import EmptyPDFError, InvalidPDFError
+from app.api_errors import api_error
+from app.exception_handlers import register_exception_handlers
 from app.extraction_pipeline import extract_pdf_document
-from app.schema_registry import UnsupportedDocumentTypeError
+from app.request_context import register_request_id_middleware
 
 app = FastAPI()
+register_exception_handlers(app)
+register_request_id_middleware(app)
 
 
 @app.get("/health")
@@ -18,23 +21,21 @@ def health():
 @app.post("/documents/upload")
 async def upload_document(file: Annotated[UploadFile, File()]):
     if file.content_type not in {"application/pdf", "image/png", "image/jpeg"}:
-        raise HTTPException(status_code=415, detail="Unsupported file type")
+        raise HTTPException(
+            status_code=415,
+            detail=api_error("unsupported_file_type", "Unsupported file type"),
+        )
     contents = await file.read()
     if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large")
+        raise HTTPException(
+            status_code=413,
+            detail=api_error("file_too_large", "File too large"),
+        )
     if file.content_type == "application/pdf":
-        try:
-            return extract_pdf_document(contents)
-        except InvalidPDFError:
-            raise HTTPException(status_code=400, detail="Invalid or corrupted PDF")
-        except EmptyPDFError:
-            raise HTTPException(status_code=400, detail="PDF contains no pages")
-        except UnsupportedDocumentTypeError:
-            raise HTTPException(status_code=422, detail="Unsupported document type")
-        except AIOutputValidationError:
-            raise HTTPException(status_code=422, detail="AI output failed validation")
-        except AIServiceError:
-            raise HTTPException(status_code=503, detail="AI service unavailable")
+        return await run_in_threadpool(
+            extract_pdf_document,
+            contents,
+        )
     return {
         "filename": file.filename,
         "content_type": file.content_type,

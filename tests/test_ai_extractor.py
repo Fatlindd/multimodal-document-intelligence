@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import httpx2
 import pytest
 from openai import APIConnectionError, APIError
@@ -7,6 +9,7 @@ from app.ai_extractor import (
     AIOutputValidationError,
     AIServiceError,
     _call_with_retry,
+    _log_ai_usage,
     classify_document,
     extract_structured_document,
 )
@@ -85,3 +88,31 @@ def test_call_with_retry_exhausts_attempts():
 
     assert calls == 2
     assert "AI service unavailable" in str(exc_info.value)
+
+
+def test_log_ai_usage(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.ai_extractor.logger.info",
+        lambda *args, **kwargs: calls.append(args),
+    )
+    response = SimpleNamespace(
+        model="gpt-6-astra",
+        usage=SimpleNamespace(input_tokens=100, output_tokens=20, total_tokens=120),
+    )
+
+    _log_ai_usage(response, "classify_document")
+
+    assert calls
+
+
+def test_log_ai_usage_missing(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.ai_extractor.logger.info",
+        lambda *args, **kwargs: calls.append(args),
+    )
+
+    _log_ai_usage(SimpleNamespace(usage=None), "classify_document")
+
+    assert not calls

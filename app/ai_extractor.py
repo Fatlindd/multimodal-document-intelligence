@@ -10,8 +10,11 @@ from openai import (
 from pydantic import ValidationError
 
 from app.ai_client import client
+from app.logging_config import get_logger
+from app.request_context import get_request_id
 from app.schema_registry import get_schema_for_document_type
 
+logger = get_logger(__name__)
 
 class AIServiceError(Exception):
     pass
@@ -19,6 +22,21 @@ class AIServiceError(Exception):
 
 class AIOutputValidationError(Exception):
     pass
+
+
+def _log_ai_usage(response, operation: str) -> None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    logger.info(
+        "ai usage request_id=%s operation=%s model=%s input_tokens=%s output_tokens=%s total_tokens=%s",
+        get_request_id(),
+        operation,
+        getattr(response, "model", None),
+        getattr(usage, "input_tokens", None),
+        getattr(usage, "output_tokens", None),
+        getattr(usage, "total_tokens", None),
+    )
 
 
 def _call_with_retry(operation, max_attempts: int = 2):
@@ -110,6 +128,7 @@ def classify_document(text: str, image_bytes: bytes):
         )
     except APIError as exc:
         raise AIServiceError("AI service unavailable") from exc
+    _log_ai_usage(response, "classify_document")
     return response.output_text.strip().lower()
 
 
@@ -144,4 +163,5 @@ def extract_structured_document(text: str, image_bytes: bytes, document_type: st
         raise AIServiceError("AI service unavailable") from exc
     except ValidationError as exc:
         raise AIOutputValidationError("AI output failed validation") from exc
+    _log_ai_usage(response, "extract_structured_document")
     return response.output_parsed

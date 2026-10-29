@@ -16,6 +16,7 @@ def test_extract_pdf_document(monkeypatch):
         "app.extraction_pipeline.extract_structured_document",
         lambda text, image_bytes, document_type: invoice,
     )
+    monkeypatch.setattr("app.extraction_pipeline.get_request_id", lambda: "req-1")
 
     document = pymupdf.open()
     page = document.new_page()
@@ -29,7 +30,7 @@ def test_extract_pdf_document(monkeypatch):
     assert result.document_type == "invoice"
     assert result.data == invoice.model_dump()
     assert result.warnings == []
-    assert result.metadata["page_count"] == 1
+    assert result.metadata == {"page_count": 1, "request_id": "req-1"}
 
 
 def test_extract_pdf_document_unsupported_type(monkeypatch):
